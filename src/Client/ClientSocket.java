@@ -1,10 +1,13 @@
 package Client;
 
-import MessageService.Message;
+import Common.Message;
+import Server.AuthService.AuthService;
 
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public class ClientSocket {
@@ -13,11 +16,14 @@ public class ClientSocket {
     private BufferedReader reader;
     private PrintWriter writer;
 
+    private UUID token;
+
     private Consumer<Void> onConnect;
     private Consumer<Void> onDisconnect;
     private Consumer<Message> onMessage;
     private Consumer<String> onError;
     private Consumer<String> onInfo;
+    private Consumer<String> onRequestName;
 
     public ClientSocket(String address) {
         try {
@@ -61,19 +67,37 @@ public class ClientSocket {
     public void addOnInfo(Consumer<String> onInfo) {
         this.onInfo = onInfo;
     }
+    public void addOnRequestName(Consumer<String> onRequestName) {
+        this.onRequestName = onRequestName;
+    }
     private void HandleReadSocket() {
         while (true) {
             try {
                 var string = reader.readLine();
+                if (string == null) {
+                    onInfo.accept("Server disconnected");
+                    break;
+                }
                 var message = Message.ParseMessage(string);
-                onMessage.accept(message);
                 if (message.type == Message.MessageType.SERVER_IS_FULL) break;
+                if (message.type == Message.MessageType.TOKEN) {
+                    token = UUID.fromString(message.headers.get(AuthService.AUTHORIZATION_HEADER));
+                    onRequestName.accept(message.headers.get(AuthService.NAME_HEADER));
+                    continue;
+                }
+                onMessage.accept(message);
             } catch (IOException | Message.InvalidMessageException e) {
                 onError.accept(e.getMessage());
             }
         }
     }
-    public void WriteMessage(String message) {
-        writer.println(Message.NormalMessage(message).toString());
+    public void WriteMessage(Message message) {
+        if (message.headers == null) {
+            message.headers = new HashMap<>();
+        }
+        if (token != null) {
+            message.headers.put(AuthService.AUTHORIZATION_HEADER, token.toString());
+        }
+        writer.println(message);
     }
 }

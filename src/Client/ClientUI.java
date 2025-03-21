@@ -1,10 +1,12 @@
 package Client;
 
-import MessageService.Message;
+import Common.Message;
+import Server.AuthService.AuthService;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.HashMap;
 
 public class ClientUI {
     private final ClientSocket socket;
@@ -13,6 +15,7 @@ public class ClientUI {
     private final JTextArea textArea;
     private final JTextField textField;
     private final JButton sendButton;
+    private boolean hasRequestedName;
 
     public ClientUI(ClientSocket socket) {
         this.socket = socket;
@@ -21,16 +24,15 @@ public class ClientUI {
         socket.addOnMessage(this::onMessage);
         socket.addOnError(this::onError);
         socket.addOnInfo(this::onInfo);
+        socket.addOnRequestName(this::onRequestName);
 
         textArea = new JTextArea(20, 50);
         textArea.setEditable(false);
 
         textField = new JTextField(30);
         textField.setHorizontalAlignment(JTextField.CENTER);
-        textField.setEnabled(false);
 
         sendButton = new JButton("Send");
-        sendButton.setEnabled(false);
         sendButton.addActionListener(this::sendHandler);
 
         panel = new JPanel();
@@ -48,10 +50,15 @@ public class ClientUI {
 
         new Thread(socket::Connect).start();
     }
+    private void onRequestName(String name) {
+        textArea.append("Name '" + name + "' has been accepted!\n");
+        hasRequestedName = true;
+    }
     private void onConnect(Void unused) {
         textField.setEnabled(true);
         sendButton.setEnabled(true);
         textArea.append("Connected!\n");
+        textArea.append("Write display name.\n");
     }
     private void onDisconnect(Void unused) {
         textField.setEnabled(false);
@@ -59,7 +66,7 @@ public class ClientUI {
         textArea.append("Disconnected!\n");
     }
     private void onMessage(Message message) {
-        textArea.append(message.toString() + "\n");
+        textArea.append(message.headers.get(AuthService.NAME_HEADER) + ": " + message.payload + "\n");
     }
     private void onError(String errorMessage) {
         textArea.append(errorMessage + "\n");
@@ -70,7 +77,14 @@ public class ClientUI {
     private void sendHandler(ActionEvent e) {
         var text = textField.getText();
         if (!text.isEmpty()) {
-            socket.WriteMessage(text);
+            var headers = new HashMap<String, String>();
+            Message message;
+            if (!hasRequestedName) {
+                message = Message.NameRequest(text);
+            } else {
+                message = Message.NormalMessage(text, headers);
+            }
+            socket.WriteMessage(message);
             textField.setText("");
         }
     }
