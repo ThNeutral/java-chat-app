@@ -24,8 +24,12 @@ public class Message {
         return new Message(MessageType.TOKEN, headers, "");
     }
 
-    public static Message NameRequest(String name) {
-        return new Message(MessageType.REQUEST_NAME, new HashMap<>(), name);
+    public static Message NameResponse(String name) {
+        return new Message(MessageType.NAME_RESPONSE, new HashMap<>(), name);
+    }
+
+    public static Message NameRequest() {
+        return new Message(MessageType.NAME_REQUEST, new HashMap<>(), "");
     }
 
     public static Message NormalMessage(String payload) {
@@ -65,7 +69,8 @@ public class Message {
         SERVER_IS_FULL,
         NORMAL_MESSAGE,
         TOKEN,
-        REQUEST_NAME,
+        NAME_RESPONSE,
+        NAME_REQUEST
     }
     public MessageType type;
     public HashMap<String, String> headers;

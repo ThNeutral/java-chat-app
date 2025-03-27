@@ -24,6 +24,7 @@ public class ClientUI {
         socket.addOnMessage(this::onMessage);
         socket.addOnError(this::onError);
         socket.addOnInfo(this::onInfo);
+        socket.addOnResponseName(this::onResponseName);
         socket.addOnRequestName(this::onRequestName);
 
         textArea = new JTextArea(20, 50);
@@ -50,7 +51,7 @@ public class ClientUI {
 
         new Thread(socket::Connect).start();
     }
-    private void onRequestName(String name) {
+    private void onResponseName(String name) {
         textArea.append("Name '" + name + "' has been accepted!\n");
         hasRequestedName = true;
     }
@@ -58,6 +59,8 @@ public class ClientUI {
         textField.setEnabled(true);
         sendButton.setEnabled(true);
         textArea.append("Connected!\n");
+    }
+    private void onRequestName(Void unused) {
         textArea.append("Write display name.\n");
     }
     private void onDisconnect(Void unused) {
@@ -80,7 +83,7 @@ public class ClientUI {
             var headers = new HashMap<String, String>();
             Message message;
             if (!hasRequestedName) {
-                message = Message.NameRequest(text);
+                message = Message.NameResponse(text);
             } else {
                 message = Message.NormalMessage(text, headers);
             }

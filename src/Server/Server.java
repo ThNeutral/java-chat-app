@@ -71,9 +71,10 @@ public class Server {
         @Override
         public void run() {
             try {
+                writer.println(Message.NameRequest());
                 var incoming = reader.readLine();
                 var message = Message.ParseMessage(incoming);
-                if (message.type != Message.MessageType.REQUEST_NAME) throw new Exception();
+                if (message.type != Message.MessageType.NAME_RESPONSE) throw new Exception();
                 clientToken = authService.Register(message.payload);
                 writer.println(Message.Token(clientToken, message.payload));
                 while ((incoming = reader.readLine()) != null) {

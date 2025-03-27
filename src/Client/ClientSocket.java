@@ -23,7 +23,8 @@ public class ClientSocket {
     private Consumer<Message> onMessage;
     private Consumer<String> onError;
     private Consumer<String> onInfo;
-    private Consumer<String> onRequestName;
+    private Consumer<String> onResponseName;
+    private Consumer<Void> onRequestName;
 
     public ClientSocket(String address) {
         try {
@@ -67,7 +68,10 @@ public class ClientSocket {
     public void addOnInfo(Consumer<String> onInfo) {
         this.onInfo = onInfo;
     }
-    public void addOnRequestName(Consumer<String> onRequestName) {
+    public void addOnResponseName(Consumer<String> onResponseName) {
+        this.onResponseName = onResponseName;
+    }
+    public void addOnRequestName(Consumer<Void> onRequestName) {
         this.onRequestName = onRequestName;
     }
     private void HandleReadSocket() {
@@ -79,10 +83,17 @@ public class ClientSocket {
                     break;
                 }
                 var message = Message.ParseMessage(string);
-                if (message.type == Message.MessageType.SERVER_IS_FULL) break;
+                if (message.type == Message.MessageType.SERVER_IS_FULL) {
+                    onInfo.accept("Server is full.");
+                    break;
+                }
+                if (message.type == Message.MessageType.NAME_REQUEST) {
+                    onRequestName.accept(null);
+                    continue;
+                }
                 if (message.type == Message.MessageType.TOKEN) {
                     token = UUID.fromString(message.headers.get(AuthService.AUTHORIZATION_HEADER));
-                    onRequestName.accept(message.headers.get(AuthService.NAME_HEADER));
+                    onResponseName.accept(message.headers.get(AuthService.NAME_HEADER));
                     continue;
                 }
                 onMessage.accept(message);
