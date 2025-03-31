@@ -76,7 +76,8 @@ public class Server {
                 var message = Message.ParseMessage(incoming);
                 if (message.type != Message.MessageType.NAME_RESPONSE) throw new Exception();
                 clientToken = authService.Register(message.payload);
-                writer.println(Message.Token(clientToken, message.payload));
+                var clientDisplayName = authService.GetNameFromUUID(clientToken);
+                writer.println(Message.Token(clientToken, clientDisplayName));
                 while ((incoming = reader.readLine()) != null) {
                     try {
                         message = Message.ParseMessage(incoming);
