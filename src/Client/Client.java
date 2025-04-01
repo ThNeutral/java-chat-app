@@ -15,7 +15,7 @@ public class Client {
         clientSocket.addOnRequestName(clientUI::onRequestName);
         clientSocket.addOnGrantName(clientUI::onGrantName);
     }
-    public void connect() {
+    public void start() {
         clientUI.render();
         clientSocket.connect();
     }

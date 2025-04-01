@@ -57,7 +57,7 @@ public class CLI {
         }
 
         try {
-            new Client(args[1]).connect();
+            new Client(args[1]).start();
         } catch (IllegalArgumentException e) {
             printUsageError(e.getMessage());
         }

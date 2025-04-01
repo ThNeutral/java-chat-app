@@ -5,12 +5,10 @@ import Server.Services.AuthService;
 
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.Element;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 class ClientUI {
@@ -21,7 +19,7 @@ class ClientUI {
     private JButton sendButton;
     private StyledDocument doc;
 
-    private int ethemeralLines = 0;
+    private int ephemeralLines = 0;
     private boolean isAuthenticated = false;
 
     private Consumer<Message> sender;
@@ -57,7 +55,7 @@ class ClientUI {
 
     public void onInfo(String info) {
         removeEphemeralText();
-        appendText("INFO: " + info, Color.black, true);
+        appendText("INFO: " + info, Color.blue, true);
     }
 
     public void onMessage(Message message) {
@@ -104,13 +102,13 @@ class ClientUI {
     }
 
     private void addEphemeralText(String text, Color color) {
-        this.ethemeralLines += text.split("\n").length;
+        this.ephemeralLines += text.split("\n").length;
         appendText(text, color, true);
     }
 
     private void removeEphemeralText() {
         try {
-            int lineCount = this.ethemeralLines;
+            int lineCount = this.ephemeralLines;
             if (lineCount <= 0) return;
 
             var text = doc.getText(0, doc.getLength());
@@ -125,7 +123,7 @@ class ClientUI {
                 doc.remove(charCount, doc.getLength() - charCount);
             }
 
-            this.ethemeralLines = 0;
+            this.ephemeralLines = 0;
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
