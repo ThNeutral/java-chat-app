@@ -1,99 +1,114 @@
 package Common;
 
-import Server.AuthService.AuthService;
-
-import java.util.*;
+import java.util.Hashtable;
 
 public class Message {
-    private static final String DELIM = "///";
+    public static final String DELIMETER = "///";
+    public static final String HEADER_DELIMETER = ":";
 
-    public static class InvalidMessageException extends Exception {
-        public InvalidMessageException(String message) {
-            super(message);
-        }
-    }
+    public static final String NAME_HEADER = "Name";
+    public static final String IDENTIFIER_HEADER = "Identifier";
+    public static final String TOKEN_HEADER = "Token";
 
-    public static Message ServerIsFull() {
-        return new Message(MessageType.SERVER_IS_FULL, new HashMap<>(), "Server is full");
-    }
-
-    public static Message Token(UUID token, String name) {
-        var headers = new HashMap<String, String>();
-        headers.put(AuthService.NAME_HEADER, name);
-        headers.put(AuthService.AUTHORIZATION_HEADER, token.toString());
-        return new Message(MessageType.TOKEN, headers, "");
-    }
-
-    public static Message NameResponse(String name) {
-        return new Message(MessageType.NAME_RESPONSE, new HashMap<>(), name);
-    }
-
-    public static Message NameRequest() {
-        return new Message(MessageType.NAME_REQUEST, new HashMap<>(), "");
-    }
-
-    public static Message NormalMessage(String payload) {
-        return NormalMessage(payload, new HashMap<>());
-    }
-
-    public static Message NormalMessage(String payload, HashMap<String, String> headers) {
-        return new Message(MessageType.NORMAL_MESSAGE, headers, payload);
-    }
-
-    public static Message ParseMessage(String str) throws InvalidMessageException {
-        if (str == null || str.isEmpty()) {
-            throw new InvalidMessageException("Input string cannot be null or empty");
-        }
-
-        String[] parts = str.split(DELIM, -1);
+    public static Message parse(String messageStr) throws IllegalArgumentException {
+        String[] parts = messageStr.split(DELIMETER);
         if (parts.length < 2) {
-            throw new InvalidMessageException("Invalid message format");
+            throw new IllegalArgumentException("Invalid message format");
         }
 
-        MessageType type = MessageType.valueOf(parts[0]);
-        String payload = parts[parts.length - 1];
+        Message message = new Message();
+        message.type = MessageType.valueOf(parts[0]);
 
-        var headers = new HashMap<String, String>();
-
-        for (int i = 1; i < parts.length - 1; i++) {
-            String[] headerParts = parts[i].split(": ", 2);
-            if (headerParts.length == 2) {
-                headers.put(headerParts[0], headerParts[1]);
+        int i = 1;
+        while (i < parts.length - 1) {
+            if (!parts[i].contains(HEADER_DELIMETER)) {
+                break;
             }
+            String[] headerParts = parts[i].split(HEADER_DELIMETER, 2);
+            message.headers.put(headerParts[0], headerParts[1]);
+            i++;
         }
 
-        return new Message(type, headers, payload);
+        message.payload = parts[i];
+        return message;
+    }
+
+    public static Message ServerMessage(String payload) {
+        return ServerMessage(new Hashtable<>(), payload);
+    }
+    public static Message ServerMessage(Hashtable<String, String> headers, String payload) {
+        return new Message(MessageType.SERVER_MESSAGE, headers, payload);
+    }
+
+    public static Message ClientMessage(String payload) {
+        return ClientMessage(new Hashtable<>(), payload);
+    }
+    public static Message ClientMessage(Hashtable<String, String> headers, String payload) {
+        return new Message(MessageType.CLIENT_MESSAGE, headers, payload);
+    }
+
+    public static Message RequestName() {
+        return RequestName(new Hashtable<>());
+    }
+    public static Message RequestName(Hashtable<String, String> headers) {
+        return new Message(MessageType.REQUEST_NAME, headers, "_");
+    }
+
+    public static Message ResponseName(String payload) {
+        return ResponseName(new Hashtable<>(), payload);
+    }
+    public static Message ResponseName(Hashtable<String, String> headers, String payload) {
+        return new Message(MessageType.RESPONSE_NAME, headers, payload);
+    }
+
+    public static Message GrantName(String payload) {
+        return GrantName(new Hashtable<>(), payload);
+    }
+    public static Message GrantName(Hashtable<String, String> headers, String payload) {
+        return new Message(MessageType.GRANT_NAME, headers, payload);
+    }
+
+    public static Message Error(String payload) {
+        return Error(new Hashtable<>(), payload);
+    }
+    public static Message Error(Hashtable<String, String> headers, String payload) {
+        return new Message(MessageType.ERROR, headers, payload);
     }
 
     public enum MessageType {
-        SERVER_IS_FULL,
-        NORMAL_MESSAGE,
-        TOKEN,
-        NAME_RESPONSE,
-        NAME_REQUEST
+        SERVER_MESSAGE,
+        CLIENT_MESSAGE,
+        REQUEST_NAME,
+        RESPONSE_NAME,
+        GRANT_NAME,
+        ERROR
     }
+
     public MessageType type;
-    public HashMap<String, String> headers;
+    public Hashtable<String, String> headers;
     public String payload;
-    public Message(MessageType type, HashMap<String, String> headers, String payload) {
+
+    public Message() {
+        this.headers = new Hashtable<>();
+    }
+
+    public Message(MessageType type, Hashtable<String, String> headers, String payload) {
         this.type = type;
-        this.headers = headers;
+        this.headers = headers != null ? headers : new Hashtable<>();
         this.payload = payload;
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(type.name());
+        var sb = new StringBuilder();
+        sb.append(type).append(DELIMETER);
 
-        if (headers != null && !headers.isEmpty()) {
-            for (var key : headers.keySet()) {
-                var value = headers.get(key);
-                sb.append(DELIM).append(key).append(": ").append(value);
-            }
+        for (var entry : headers.entrySet()) {
+            sb.append(entry.getKey()).append(HEADER_DELIMETER).append(entry.getValue()).append(DELIMETER);
         }
 
-        sb.append(DELIM).append(payload);
+        sb.append(payload);
+
         return sb.toString();
     }
 }

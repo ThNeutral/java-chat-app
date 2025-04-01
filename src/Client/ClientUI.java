@@ -1,7 +1,7 @@
 package Client;
 
 import Common.Message;
-import Server.AuthService.AuthService;
+import Server.Services.AuthService;
 
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
@@ -9,28 +9,26 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.HashMap;
+import java.util.UUID;
+import java.util.function.Consumer;
 
-public class ClientUI {
-    private final ClientSocket socket;
-    private final JFrame frame;
-    private final JPanel panel;
-    private final JTextPane textPane;
-    private final JTextField textField;
-    private final JButton sendButton;
-    private boolean hasRequestedName;
+class ClientUI {
+    private JFrame frame;
+    private JPanel panel;
+    private JTextPane textPane;
+    private JTextField textField;
+    private JButton sendButton;
     private StyledDocument doc;
 
-    public ClientUI(ClientSocket socket) {
-        this.socket = socket;
-        socket.addOnConnect(this::onConnect);
-        socket.addOnDisconnect(this::onDisconnect);
-        socket.addOnMessage(this::onMessage);
-        socket.addOnError(this::onError);
-        socket.addOnInfo(this::onInfo);
-        socket.addOnResponseName(this::onResponseName);
-        socket.addOnRequestName(this::onRequestName);
+    private int ethemeralLines = 0;
+    private boolean isAuthenticated = false;
 
+    private Consumer<Message> sender;
+    public void addSender(Consumer<Message> sender) {
+        this.sender = sender;
+    }
+
+    public void render() {
         textPane = new JTextPane();
         textPane.setEditable(false);
         textPane.setPreferredSize(new Dimension(50 * 7, 20 * 16));
@@ -40,7 +38,7 @@ public class ClientUI {
         textField.setHorizontalAlignment(JTextField.CENTER);
 
         sendButton = new JButton("Send");
-        sendButton.addActionListener(this::sendHandler);
+        sendButton.addActionListener(this::onSend);
 
         panel = new JPanel();
         panel.setLayout(new FlowLayout(FlowLayout.CENTER));
@@ -54,65 +52,90 @@ public class ClientUI {
         frame.add(panel, BorderLayout.SOUTH);
         frame.pack();
         frame.setVisible(true);
-
-        new Thread(socket::Connect).start();
     }
 
-    private void onResponseName(String name) {
-        appendText("Your display name is '" + name + "'", Color.BLACK);
-        hasRequestedName = true;
+    public void onInfo(String info) {
+        removeEthemeralText();
+        appendText("INFO: " + info, Color.black, true);
     }
 
-    private void onConnect(Void unused) {
-        textField.setEnabled(true);
-        sendButton.setEnabled(true);
-        appendText("Connected!", Color.BLACK);
+    public void onMessage(Message message) {
+        removeEthemeralText();
+        var name = message.headers.get(Message.NAME_HEADER);
+        var identifier = message.headers.get(Message.IDENTIFIER_HEADER);
+        appendText((name != null ? name + "-" + identifier : "???") + ": ", Color.green, true);
+        appendText(message.payload, Color.black, true);
     }
 
-    private void onRequestName(Void unused) {
-        appendText("Write display name.", Color.BLACK);
+    public void onError(String errorMessage) {
+        removeEthemeralText();
+        appendText(errorMessage, Color.red, true);
     }
 
-    private void onDisconnect(Void unused) {
-        textField.setEnabled(false);
-        sendButton.setEnabled(false);
-        appendText("Disconnected!", Color.BLACK);
+    public void onRequestName(Void unused) {
+        addEthemeralText("Enter your display name", Color.blue);
     }
 
-    private void onMessage(Message message) {
-        appendText(message.headers.get(AuthService.NAME_HEADER) + ": " + message.payload, Color.BLACK);
+    public void onGrantName(AuthService.UserEntry userEntry) {
+        removeEthemeralText();
+        appendText("Your name: " + userEntry.name, Color.black, true);
+        appendText("Your identifier: " + userEntry.identifier, Color.black, true);
+        isAuthenticated = true;
     }
 
-    private void onError(String errorMessage) {
-        appendText(errorMessage, Color.RED);
+    private void onSend(ActionEvent unused) {
+        var string = textField.getText();
+        if (string.isEmpty()) {
+            addEthemeralText("Cannot send empty message", Color.red);
+            return;
+        }
+
+        removeEthemeralText();
+        Message message;
+        if (isAuthenticated) {
+            message = Message.ClientMessage(string);
+        } else {
+            message = Message.ResponseName(string);
+        }
+        sender.accept(message);
+
+        textField.setText("");
     }
 
-    private void onInfo(String info) {
-        appendText(info, Color.BLACK);
+    private void addEthemeralText(String text, Color color) {
+        this.ethemeralLines += text.split("\n").length + 1;
+        appendText(text, color, true);
     }
 
-    private void appendText(String text, Color color) {
-        var style = textPane.addStyle("ColorStyle", null);
-        StyleConstants.setForeground(style, color);
+    private void removeEthemeralText() {
         try {
-            doc.insertString(doc.getLength(), text + "\n", style);
+            int endOffset = doc.getLength();
+            int startOffset = endOffset;
+            int linesToRemove = this.ethemeralLines;
+
+            while (linesToRemove > 0 && startOffset > 0) {
+                startOffset--;
+                if (doc.getText(startOffset, 1).equals("\n")) {
+                    linesToRemove--;
+                }
+            }
+
+            doc.remove(startOffset, endOffset - startOffset);
+
+            this.ethemeralLines = 0;
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
 
-    private void sendHandler(ActionEvent e) {
-        var text = textField.getText();
-        if (!text.isEmpty()) {
-            var headers = new HashMap<String, String>();
-            Message message;
-            if (!hasRequestedName) {
-                message = Message.NameResponse(text);
-            } else {
-                message = Message.NormalMessage(text, headers);
-            }
-            socket.WriteMessage(message);
-            textField.setText("");
+    private void appendText(String text, Color color, boolean newLine) {
+        var style = textPane.addStyle("ColorStyle", null);
+        StyleConstants.setForeground(style, color);
+        try {
+            var lineBreak = newLine ? "\n" : "";
+            doc.insertString(doc.getLength(), text + lineBreak, style);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
         }
     }
 }
