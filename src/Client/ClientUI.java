@@ -5,6 +5,7 @@ import Server.Services.AuthService;
 
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Element;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import java.awt.*;
@@ -55,12 +56,12 @@ class ClientUI {
     }
 
     public void onInfo(String info) {
-        removeEthemeralText();
+        removeEphemeralText();
         appendText("INFO: " + info, Color.black, true);
     }
 
     public void onMessage(Message message) {
-        removeEthemeralText();
+        removeEphemeralText();
         var name = message.headers.get(Message.NAME_HEADER);
         var identifier = message.headers.get(Message.IDENTIFIER_HEADER);
         appendText((name != null ? name + "-" + identifier : "???") + ": ", Color.green, true);
@@ -68,16 +69,16 @@ class ClientUI {
     }
 
     public void onError(String errorMessage) {
-        removeEthemeralText();
+        removeEphemeralText();
         appendText(errorMessage, Color.red, true);
     }
 
     public void onRequestName(Void unused) {
-        addEthemeralText("Enter your display name", Color.blue);
+        addEphemeralText("Enter your display name", Color.blue);
     }
 
     public void onGrantName(AuthService.UserEntry userEntry) {
-        removeEthemeralText();
+        removeEphemeralText();
         appendText("Your name: " + userEntry.name, Color.black, true);
         appendText("Your identifier: " + userEntry.identifier, Color.black, true);
         isAuthenticated = true;
@@ -86,11 +87,11 @@ class ClientUI {
     private void onSend(ActionEvent unused) {
         var string = textField.getText();
         if (string.isEmpty()) {
-            addEthemeralText("Cannot send empty message", Color.red);
+            addEphemeralText("Cannot send empty message", Color.red);
             return;
         }
 
-        removeEthemeralText();
+        removeEphemeralText();
         Message message;
         if (isAuthenticated) {
             message = Message.ClientMessage(string);
@@ -102,25 +103,27 @@ class ClientUI {
         textField.setText("");
     }
 
-    private void addEthemeralText(String text, Color color) {
-        this.ethemeralLines += text.split("\n").length + 1;
+    private void addEphemeralText(String text, Color color) {
+        this.ethemeralLines += text.split("\n").length;
         appendText(text, color, true);
     }
 
-    private void removeEthemeralText() {
+    private void removeEphemeralText() {
         try {
-            int endOffset = doc.getLength();
-            int startOffset = endOffset;
-            int linesToRemove = this.ethemeralLines;
+            int lineCount = this.ethemeralLines;
+            if (lineCount <= 0) return;
 
-            while (linesToRemove > 0 && startOffset > 0) {
-                startOffset--;
-                if (doc.getText(startOffset, 1).equals("\n")) {
-                    linesToRemove--;
+            var text = doc.getText(0, doc.getLength());
+            var lines = text.split("\n");
+            if (lines.length < lineCount) {
+                doc.remove(0, doc.getLength());
+            } else {
+                var charCount = 0;
+                for (int i = 0; i < lines.length - lineCount; i++) {
+                    charCount += lines[i].length() + 1;
                 }
+                doc.remove(charCount, doc.getLength() - charCount);
             }
-
-            doc.remove(startOffset, endOffset - startOffset);
 
             this.ethemeralLines = 0;
         } catch (BadLocationException e) {
